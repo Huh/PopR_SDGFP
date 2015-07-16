@@ -7,7 +7,7 @@
 		require(dplyr)
 		#  all females
 #################################################################################
-		read_convert <- function(fname, sp, aclass, save_file = NULL){
+		read_convert <- function(fname, sp, aclass){
 			#  Takes a file name as input, file must be .csv,
 			#  Also takes sp which is species with entry Mule Deer or 
 			#   White-tailed Deer exactly
@@ -16,8 +16,6 @@
 			#   animals transition to the next ageclass on October 1 of each year
 			#   this means that a yoy cannot be captured between October and 
 			#   May/June
-			#  save_file is the filename (including directory when different than
-			#   working directory) of the object to be saved
 			#  Returns a long format summary of survival for each individual that
 			#  matches database formatting
 			
@@ -81,12 +79,6 @@
 									c(CollectionType[n()-1], "Deer Mortality"), 
 									CollectionType))
 							
-			if(!is.null(save_file)){
-				if(!grepl("csv", save_file)){
-					save_file <- paste(save_file, "csv", sep = ".")
-				}
-				write.csv(out, file = save_file)
-			}			
 		return(out)
 		}
 #################################################################################
@@ -116,10 +108,8 @@
 								simplify = F)) 
 								
 		#  Save file as .csv
-		new_data4 <- do.call(rbind, sapply(list.files("C:/tmp/sdsurv"), 
-								read_convert, "White-tailed Deer", "adult",
-								"C:/tmp/new_data.csv",
-								simplify = F)) 	
+		write.csv(new_data3, file = "C:/tmp/mydata.csv")
+
 		#  If you write the output to the directory with the raw data list.files
 		#  will try to run the function on the new output and fail, so it is
 		#  best to pick a new directory in which to save the new data files
