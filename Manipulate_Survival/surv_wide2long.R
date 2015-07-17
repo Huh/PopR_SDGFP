@@ -7,8 +7,8 @@
 		require(dplyr)
 		#  all females
 #################################################################################
-		read_convert <- function(fname, sp, aclass){
-			#  Takes a file name as input, file must be .csv,
+		read_convert <- function(fname, sp, aclass, sx){
+			#  Takes a file path as input, file must be .csv,
 			#  Also takes sp which is species with entry Mule Deer or 
 			#   White-tailed Deer exactly
 			#  The argument aclass is the ageclass of the animals with 
@@ -25,7 +25,7 @@
 			}
 			
 			#  Read file
-			x <- read.csv(file.path(getwd(), fname), as.is = T)
+			x <- read.csv(fname, as.is = T)
 
 			#  Convert wide to long format
 			out <- x %>%
@@ -47,7 +47,7 @@
 							Capture_Type = NA,
 							Censored = NA,
 							Dead = NA,
-							Sex = "f",
+							Sex = sx,
 							Weight = NA,
 							HoofGrowth = NA,
 							DeathEvidence = NA,
@@ -66,49 +66,75 @@
 							Status = ifelse(Status == 11, 0, Status),
 							Status = ifelse(Status == 10, 1, Status),
 							Cause_of_Death = ifelse(Cause_of_Death == "", NA, 
-													Cause_of_Death)) %>%
+													Cause_of_Death))
+		return(out)
+		}
+#################################################################################
+		combine_fun <- function(x){
+			#  Takes output of read_convert
+			#  Returns a data.frame with columns altered to reflect status and
+			#  fate of animal
+			out <- x %>% 
+					arrange(Id) %>%
 					group_by(Id) %>%
-					mutate(Dead = grepl("other|harv", Cause_of_Death),
+					mutate(Dead = any(!is.na(Cause_of_Death)),
 							Censored = !Dead,
 							Dead = substr(Dead, 1, 1),
 							Censored = substr(Censored, 1, 1),
 							CollectionType = c("Deer Capture", 
-												rep("Deer Monitoring", n() - 2),
-												NA),
-							CollectionType = ifelse(Dead == "T", 
-									c(CollectionType[n()-1], "Deer Mortality"), 
-									CollectionType))
-							
-		return(out)
+												rep("Deer Monitoring", n() - 1)),
+							CollectionType = ifelse(Status == 0, 
+													"Deer Mortality", 
+													CollectionType)) %>%
+					filter(!is.na(CollectionType)) %>%
+					mutate(Status = ifelse(grepl("harv", Cause_of_Death) &
+											CollectionType == "Deer Mortality", 
+											2, 
+											Status),
+							Status = ifelse(grepl("ther", Cause_of_Death) &
+											CollectionType == "Deer Mortality", 
+											3, 
+											Status))
+		return(out)		
+		}
+#################################################################################
+		wrapper_fun <- function(file_dir, 
+								sp_input, 
+								ageclass_input, 
+								sex_input,
+								save_file = NULL){
+			#  Takes a directory where files are stored, species, ageclass and
+			#  sex of the animals in the directory
+			#  Returns formatted data as data.frame
+			require(dplyr)
+			require(tidyr)
+			
+			#  Get file names
+			fnames <- file.path(file_dir, list.files(file_dir, pattern = "csv"))
+			
+			#  Read in data and make long 
+			tmp <- do.call(rbind, sapply(fnames, read_convert, 
+							sp_input, ageclass_input, sex_input, simplify = F))
+			
+			#  Morph individual summary information across occassions
+			out <- combine_fun(tmp)
+			
+			#  Save if desired
+			if(!is.null(save_file)){
+				if(!grepl("csv", save_file)){
+					fname <- paste(save_file, "csv", sep = ".")
+				}
+				write.csv(out, file = save_file, row.names = F)
+			}
+		return(out)		
 		}
 #################################################################################
 		#  Example call
-		#  Set working directory 
-		setwd("C:/tmp/sdsurv")
-		
-		#  List all of the files in the folder, these should all be of the same
-		#  species and ageclass...if multiple ageclasses or species are required
-		#  then create a folder for each ageclass by species combination
-		#  If desired we can break out sex too
-		fnames <- list.files()
-		#  If the working directory was not set above the line below is 
-		#   equivalent
-		#  fnames <- list.files("C:/tmp/sdsurv")
-		
-		#  One file at a time
-		new_data <- read_convert(fnames[1], "White-tailed Deer", "adult")
-		
-		#  All of the files at once
-		new_data2 <- do.call(rbind, sapply(fnames, read_convert, 
-							"White-tailed Deer", "adult", simplify = F))
-							
-		#  All in one line...
-		new_data3 <- do.call(rbind, sapply(list.files("C:/tmp/sdsurv"), 
-								read_convert, "White-tailed Deer", "adult", 
-								simplify = F)) 
-								
-		#  Save file as .csv
-		write.csv(new_data3, file = "C:/tmp/mydata.csv")
+		new_data <- wrapper_fun(file_dir = "C:/tmp/sdsurv", 
+								sp_input = "White-tailed Deer",
+								ageclass_input = "adult",
+								sex_input = "f",
+								save_file = "C:/tmp/bestdataever.csv")
 
 		#  If you write the output to the directory with the raw data list.files
 		#  will try to run the function on the new output and fail, so it is
