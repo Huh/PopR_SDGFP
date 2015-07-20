@@ -66,36 +66,56 @@
 							Status = ifelse(Status == 11, 0, Status),
 							Status = ifelse(Status == 10, 1, Status),
 							Cause_of_Death = ifelse(Cause_of_Death == "", NA, 
-													Cause_of_Death))
+													tolower(Cause_of_Death))) %>%
+					group_by(Id) %>%
+					filter(!all(is.na(Status)))
+					
+			del <- unique(x$Animal_ID)[which(!unique(x$Animal_ID) %in% unique(out$Id))]
+			if(length(del) > 0){
+				cat("\n\n", "Animal(s)", 
+				del,
+				"have no data and were deleted (all 0 encounter history?)")
+			}
+			
 		return(out)
 		}
 #################################################################################
 		combine_fun <- function(x){
-			#  Takes output of read_convert
+			#  Takes output of read_convert, one animal at a time
 			#  Returns a data.frame with columns altered to reflect status and
 			#  fate of animal
-			out <- x %>% 
-					arrange(Id) %>%
-					group_by(Id) %>%
-					mutate(Dead = any(!is.na(Cause_of_Death)),
-							Censored = !Dead,
-							Dead = substr(Dead, 1, 1),
-							Censored = substr(Censored, 1, 1),
-							CollectionType = c("Deer Capture", 
-												rep("Deer Monitoring", n() - 1)),
-							CollectionType = ifelse(Status == 0, 
-													"Deer Mortality", 
-													CollectionType)) %>%
-					filter(!is.na(CollectionType)) %>%
-					mutate(Status = ifelse(grepl("harv", Cause_of_Death) &
-											CollectionType == "Deer Mortality", 
-											2, 
-											Status),
-							Status = ifelse(grepl("ther", Cause_of_Death) &
-											CollectionType == "Deer Mortality", 
-											3, 
-											Status))
-		return(out)		
+			
+			dts <- as.Date(x$Date, "%m/%d/%Y")
+			
+			tmp <- x %>% 
+					arrange(dts) %>%
+					filter(!is.na(Status))
+			
+			tmp$CollectionType[1] <- "Deer Capture"
+			#  Some animals die in the same month as capture, put an entry for
+			#  Capture and repeat the information for mortality
+			if(nrow(tmp) == 1){
+				tmp <- data.frame(rbind(tmp, tmp))
+			}
+			if(nrow(tmp) > 2){
+				tmp$CollectionType[2:(nrow(tmp)-1)] <- "Deer Monitoring"			
+			}
+			tmp$CollectionType[nrow(tmp)] <- "Deer Mortality"
+
+			#  Get unique of COD
+			cod <- unique(x$Cause_of_Death)
+			#  Use COD column to decide if animal is dead
+			tmp$Dead[nrow(tmp)] <- ifelse(all(is.na(cod)), F, T)
+			#  If not dead then censored
+			tmp$Censored[nrow(tmp)] <- !tmp$Dead[nrow(tmp)]
+			#  Insert COD in last row...when you would know the animal's fate
+			tmp$Cause_of_Death[nrow(tmp)] <- cod[!is.na(cod)][1]
+			tmp$Cause_of_Death[1:(nrow(tmp)-1)] <- NA
+			#  Convert Status to reflect COD			
+			tmp$Status[grepl("harv", tmp$Cause_of_Death) & tmp$Dead] <- 2
+			tmp$Status[grepl("ther", tmp$Cause_of_Death) & tmp$Dead] <- 3
+						
+		return(tmp)		
 		}
 #################################################################################
 		wrapper_fun <- function(file_dir, 
@@ -115,9 +135,12 @@
 			#  Read in data and make long 
 			tmp <- do.call(rbind, sapply(fnames, read_convert, 
 							sp_input, ageclass_input, sex_input, simplify = F))
+							
+			#  Create a list with one entry per individual
+			id_lst <- split(tmp, tmp$Id)
 			
 			#  Morph individual summary information across occassions
-			out <- combine_fun(tmp)
+			out <- bind_rows(lapply(id_lst, combine_fun))
 			
 			#  Save if desired
 			if(!is.null(save_file)){
@@ -130,11 +153,11 @@
 		}
 #################################################################################
 		#  Example call
-		new_data <- wrapper_fun(file_dir = "C:/tmp/sdsurv", 
-								sp_input = "White-tailed Deer",
-								ageclass_input = "adult",
-								sex_input = "f",
-								save_file = "C:/tmp/bestdataever.csv")
+		# new_data <- wrapper_fun(file_dir = "C:/tmp/sdsurv", 
+								# sp_input = "White-tailed Deer",
+								# ageclass_input = "adult",
+								# sex_input = "f",
+								# save_file = "C:/tmp/bestdataever.csv")
 
 		#  If you write the output to the directory with the raw data list.files
 		#  will try to run the function on the new output and fail, so it is
