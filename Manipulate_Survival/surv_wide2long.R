@@ -153,11 +153,11 @@
 		}
 #################################################################################
 		#  Example call
-		# new_data <- wrapper_fun(file_dir = "C:/tmp/sdsurv", 
-								# sp_input = "White-tailed Deer",
-								# ageclass_input = "adult",
-								# sex_input = "f",
-								# save_file = "C:/tmp/bestdataever.csv")
+		new_data <- wrapper_fun(file_dir = "C:/tmp/sdsurv", 
+								sp_input = "White-tailed Deer",
+								ageclass_input = "adult",
+								sex_input = "f",
+								save_file = "C:/tmp/bestdataever.csv")
 
 		#  If you write the output to the directory with the raw data list.files
 		#  will try to run the function on the new output and fail, so it is
