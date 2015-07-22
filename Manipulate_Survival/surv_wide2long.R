@@ -23,7 +23,7 @@
 			if(!grepl("csv", fname)){
 				fname <- paste(fname, "csv", sep = ".")
 			}
-			
+			print(fname)
 			#  Read file
 			x <- read.csv(fname, as.is = T)
 
