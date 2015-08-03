@@ -30,16 +30,16 @@
 			#  Convert wide to long format
 			out <- x %>%
 					gather(date, state, -Animal_ID, -Freq, -Unit, 
-							-CaptureDate, -COD) %>%
-					mutate(UniqueID = NA,
-							ID = NA,
-							Date = gsub("X", "", date),
-							Date = format(as.Date(Date, "%m.%d.%Y"), "%d-%b-%y"),
+							-CaptureDate, -COD, -Latitude, -Longitude) %>%
+					mutate(UniqueID = Animal_ID,
+							ID = Animal_ID,
+							Date1 = gsub("X", "", date),
+							Date1 = format(as.Date(Date1, "%m.%d.%Y"), "%m/%d/%Y"),
 							Species = sp,
 							Id1 = Animal_ID,
 							Frequency = Freq,
 							Status = state,
-							Fate = NA,
+							Fate = COD,
 							MortSigHeard = NA,
 							Capture_Unit = Unit,
 							Monitoring_Unit = NA,
@@ -55,17 +55,18 @@
 							DAU = NA,
 							DeathEvidence = NA,
 							Comments = NA,
-							Latitude = NA,
-							Longitude = NA,
-							CollectionType = NA) %>%
-					select(-Animal_ID, -Freq, -Unit, -CaptureDate, -COD, -state, 
+							Latitude = Latitude,
+							Longitude = Longitude,
+							CollectionType = NA,
+							Source = NA) %>%
+					select(-Animal_ID, -Freq, -Unit, -COD, -state, 
 							-date) %>%
 					mutate(Status = ifelse(Status == 0, NA, Status),
 							Status = ifelse(Status == 11, 0, Status),
 							Status = ifelse(Status == 10, 1, Status),
-							Cause_of_Death = ifelse(Cause_of_Death == "", NA, 
-													tolower(Cause_of_Death))) %>%
-					group_by(Id) %>%
+							Fate = ifelse(Fate == "", NA, 
+													tolower(Fate))) %>%
+					group_by(Id1) %>%
 					filter(!all(is.na(Status)))
 					
 			del <- unique(x$Animal_ID)[which(!unique(x$Animal_ID) %in% unique(out$Id))]
@@ -87,33 +88,54 @@
 			
 			tmp <- x %>% 
 					arrange(dts) %>%
+					distinct(Id1, Date1) %>%
+					select(UniqueID, ID, Date1, Species, Id1, Frequency, Status, Fate, MortSigHeard,
+							Capture_Unit, Monitoring_Unit, Ageclass, Sex, Age, Censored, Dead, 
+							Fate_Unit, Weight, HoofGrowth, Observer, DAU, DeathEvidence, Comments,
+							Latitude, Longitude, CollectionType, Source) %>%
 					filter(!is.na(Status))
 			
-			tmp$CollectionType[1] <- "Deer Capture"
+			cap <- x %>%
+					mutate(Date1 = CaptureDate, 
+							CollectionType = "Deer Capture") %>%
+					distinct() %>%
+					select(UniqueID, ID, Date1, Species, Id1, Frequency, Status, Fate, MortSigHeard,
+							Capture_Unit, Monitoring_Unit, Ageclass, Sex, Age, Censored, Dead, 
+							Fate_Unit, Weight, HoofGrowth, Observer, DAU, DeathEvidence, Comments,
+							Latitude, Longitude, CollectionType, Source)
 			#  Some animals die in the same month as capture, put an entry for
 			#  Capture and repeat the information for mortality
 			if(nrow(tmp) == 1){
-				tmp <- data.frame(rbind(tmp, tmp))
+				tmp <- data.frame(rbind(cap, tmp))
 			}
 			if(nrow(tmp) > 2){
-				tmp$CollectionType[2:(nrow(tmp)-1)] <- "Deer Monitoring"			
+				tmp$CollectionType[1:(nrow(tmp)-1)] <- "Deer Monitoring"			
 			}
 			tmp$CollectionType[nrow(tmp)] <- "Deer Mortality"
+			
+			#  Set lat and long to NA because they are only known at cap and death
+			tmp$Latitude <- NA
+			tmp$Longitude <- NA
 
 			#  Get unique of COD
-			cod <- unique(x$Cause_of_Death)
+			cod <- unique(x$Fate)
 			#  Use COD column to decide if animal is dead
 			tmp$Dead[nrow(tmp)] <- ifelse(all(is.na(cod)), F, T)
 			#  If not dead then censored
 			tmp$Censored[nrow(tmp)] <- !tmp$Dead[nrow(tmp)]
 			#  Insert COD in last row...when you would know the animal's fate
-			tmp$Cause_of_Death[nrow(tmp)] <- cod[!is.na(cod)][1]
-			tmp$Cause_of_Death[1:(nrow(tmp)-1)] <- NA
-			#  Convert Status to reflect COD			
-			tmp$Status[grepl("harv", tmp$Cause_of_Death) & tmp$Dead] <- 2
-			tmp$Status[grepl("ther", tmp$Cause_of_Death) & tmp$Dead] <- 3
+			tmp$Fate[nrow(tmp)] <- cod[!is.na(cod)][1]
+			tmp$Fate[is.na(tmp$Fate[nrow(tmp)]) & tmp$Status[nrow(tmp)] == 1] <- "Alive"
+			tmp$Fate[1:(nrow(tmp)-1)] <- NA
+			#  Convert Status to reflect COD		
+			tmp$Status[grepl("harv", tmp$Fate, ignore.case = T) & tmp$Dead] <- 2
+			tmp$Status[grepl("ther", tmp$Fate, ignore.case = T) & tmp$Dead] <- 3
+			
+			#  Combine capture information and main data
+			out <- bind_rows(cap, tmp) %>%
+					arrange(Id1)
 						
-		return(tmp)		
+		return(out)		
 		}
 #################################################################################
 		wrapper_fun <- function(file_dir, 
@@ -135,7 +157,7 @@
 							sp_input, ageclass_input, sex_input, simplify = F))
 							
 			#  Create a list with one entry per individual
-			id_lst <- split(tmp, tmp$Id)
+			id_lst <- split(tmp, tmp$Id1)
 			
 			#  Morph individual summary information across occassions
 			out <- bind_rows(lapply(id_lst, combine_fun))
@@ -151,11 +173,11 @@
 		}
 #################################################################################
 		#  Example call
-		new_data <- wrapper_fun(file_dir = "C:/tmp/sdsurv", 
+		new_data <- wrapper_fun(file_dir = "C:/Users/josh.nowak/Downloads/sd_surv", 
 								sp_input = "White-tailed Deer",
 								ageclass_input = "adult",
 								sex_input = "f",
-								save_file = "C:/tmp/bestdataever.csv")
+								save_file = "C:/Temp/bestdataever.csv")
 
 		#  If you write the output to the directory with the raw data list.files
 		#  will try to run the function on the new output and fail, so it is
