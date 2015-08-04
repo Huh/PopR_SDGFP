@@ -108,7 +108,7 @@
 			if(nrow(tmp) == 1){
 				tmp <- data.frame(rbind(cap, tmp))
 			}
-			if(nrow(tmp) > 2){
+			if(nrow(tmp) >= 2){
 				tmp$CollectionType[1:(nrow(tmp)-1)] <- "Deer Monitoring"			
 			}
 			tmp$CollectionType[nrow(tmp)] <- "Deer Mortality"
@@ -119,6 +119,7 @@
 
 			#  Get unique of COD
 			cod <- unique(x$Fate)
+			cod[cod == "censored"] <- "Alive"
 			#  Use COD column to decide if animal is dead
 			tmp$Dead[nrow(tmp)] <- ifelse(all(is.na(cod)), F, T)
 			#  If not dead then censored
