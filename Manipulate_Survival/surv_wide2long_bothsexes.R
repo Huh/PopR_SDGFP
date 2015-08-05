@@ -119,15 +119,33 @@
 
 			#  Get unique of COD
 			cod <- unique(x$Fate)
-			cod[cod == "censored"] <- "Alive"
+			cod <- cod[!is.na(cod)]
+			if(is.logical(cod)){
+				cod <- "Alive"
+			}
+			cod[grepl("cens", cod, ignore.case = T)] <- "Alive"
 			#  Use COD column to decide if animal is dead
-			tmp$Dead[nrow(tmp)] <- ifelse(all(is.na(cod)), F, T)
+			if(all(is.na(cod))){
+				tmp$Dead[nrow(tmp)] <- F
+			}else{
+				if(any(unique(cod[!is.na(cod)]) == "Alive")){
+					tmp$Dead[nrow(tmp)] <- F
+				}else{
+					tmp$Dead[nrow(tmp)] <- T
+				}
+			}
+
+			tmp$Dead[nrow(tmp)] <- ifelse(all(is.na(cod)) | any(cod == "Alive"), 
+					F, T)
+			
 			#  If not dead then censored
 			tmp$Censored[nrow(tmp)] <- !tmp$Dead[nrow(tmp)]
+			
 			#  Insert COD in last row...when you would know the animal's fate
 			tmp$Fate[nrow(tmp)] <- cod[!is.na(cod)][1]
 			tmp$Fate[is.na(tmp$Fate[nrow(tmp)]) & tmp$Status[nrow(tmp)] == 1] <- "Alive"
 			tmp$Fate[1:(nrow(tmp)-1)] <- NA
+			
 			#  Convert Status to reflect COD		
 			tmp$Status[grepl("harv", tmp$Fate, ignore.case = T) & tmp$Dead] <- 2
 			tmp$Status[grepl("ther", tmp$Fate, ignore.case = T) & tmp$Dead] <- 3
