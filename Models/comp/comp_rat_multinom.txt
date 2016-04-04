@@ -1,0 +1,22 @@
+		#  JAGS ratio analysis model
+		#  Josh Nowak
+		#  08/2015
+################################################################################
+		model{
+			#  Priors
+			for(i in 1:3){
+				b[i] ~ dnorm(2, 1)
+				log(psi[i]) <- b[i]
+				comp[i] <- psi[i]/sum(psi[])
+			}
+			
+			#  Likelihood
+			for(i in 1:nobs){
+				y[i,] ~ dmulti(comp[], n[i])
+			}
+			
+			#  Derive sex and age ratios
+			mf <- comp[3]/comp[2]
+			yf <- comp[1]/comp[2]
+
+		}

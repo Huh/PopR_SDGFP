@@ -1,0 +1,48 @@
+		#  JAGS survival model with random effect on occasion
+		#  Josh Nowak
+		#  03/2015
+#################################################################################
+		model{
+		
+			#  Priors
+			b0 ~ dnorm(1.8, 1)T(-10,10)
+			sex_eff ~ dnorm(0, 0.001)
+			tau_month ~ dunif(0, 20)
+			tau_unit ~ dunif(0, 20)
+			
+			for(t in 1:(nocc - 1)){
+				month_eff[t] ~ dnorm(0, tau_month)T(-5,5)
+			}
+			for(u in 1:nunits){
+				unit_eff[u] ~ dnorm(0, tau_unit)T(-5,5)
+			}
+			
+			#  Linear predictor
+			for(t in 1:(nocc - 1)){
+				for(u in 1:nunits){
+					for(s in 1:2){
+						tmp1[t,u,s] <- b0 + month_eff[t] + unit_eff[u]
+						logit(monthly[t,u,s]) <- tmp1[t,u,s]
+					}
+				}
+			}
+			
+			#  Likelihood
+			for(i in 1:nind){
+				for(j in (first[i]+1):last[i]){
+					phi[i,j] <- monthly[j-1, unit[i], sex[i]] * eh[i,j-1] 
+					eh[i,j] ~ dbern(phi[i,j])
+				}
+			}
+					
+			#  Derived 
+			for(u in 1:nunits){
+				for(s in 1:2){
+					Sann[u,s] <- prod(monthly[,u,s])
+					logit(tmp_mon[u,s]) <- b0 + sex_eff * (s-1) + unit_eff[u]
+					Smon[u,s] <- tmp_mon[u,s]
+				}
+			}
+
+			
+		}

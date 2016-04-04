@@ -1,0 +1,28 @@
+		#  JAGS survival model with random effect on occasion
+		#  Josh Nowak
+		#  03/2015
+#################################################################################
+		model{
+		
+			#  Priors
+			b0 ~ dnorm(1.8, 1)T(-10,10)
+			tau ~ dunif(0, 20)
+
+			for(j in 1:nocc){
+				e[j] ~ dnorm(0, tau)T(-5,5)
+				logit(monthly[j]) <- b0 + e[j]	
+			}
+			
+			#  Likelihood
+			for(i in 1:nind){
+				for(j in (first[i]+1):last[i]){
+					phi[i,j] <- monthly[j-1] * eh[i,j-1] 
+					eh[i,j] ~ dbern(phi[i,j])
+				}
+			}
+					
+			#  Derived 
+			Sann <- prod(monthly[])
+			Smon <- 1/(1 + exp(-b0))
+			
+		}

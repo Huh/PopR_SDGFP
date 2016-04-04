@@ -1,0 +1,17 @@
+Naming conventions for survival models (Needs updating)
+
+age.month.year.covariates.txt
+
+-  form of the model ms for multi-state and kf for known fate
+
+-  age takes a value of s for a single age
+
+-  sex takes a value of s for a single sex, a for all (no effect of sex) or fe for fixed effect of sex
+
+-  month takes r for random effect, mvr for multivariate random
+
+-  year takes s for a single year model
+
+-  unit takes r for random effect, a for all and s for single or a for all (no effect of unit)
+
+-  covariates take n to represent the absence of covariates

@@ -1,0 +1,108 @@
+		#  JAGS survival model with random effect on occasion
+		#  Josh Nowak
+		#  07/2015
+#################################################################################
+      model{
+        #  Priors
+        #  Survival
+        b0[1] ~ dnorm(0, 0.001)T(-10, 10)
+        #  Hunting Mortality
+        b0[2] ~ dnorm(0, 0.001)T(-10, 10)
+        #  Other Mortality
+        b0[3] <- 0
+		
+		#  Monthly random effect
+		for(i in 1:2){
+			tau[i] <- 1/(sigma[i]^2)
+			sigma[i] ~ dunif(0, 20)
+		}
+		for(t in 1:nocc){
+			for(i in 1:2){
+				eps[t, i] ~ dnorm(0, tau[i])
+			}
+		}
+        
+		#  Linear predictor
+		for(t in 1:nocc){
+			log(psi[t,1]) <- b0[1] + eps[t,1]
+			log(psi[t,2]) <- b0[2] + eps[t,2]
+			log(psi[t,3]) <- 0
+		}
+		
+		#  Probability of survival, death by hunting and death by other
+		for(t in 1:nocc){
+			monthly[t] <- psi[t,1]/sum(psi[t,])
+			hmort[t] <- psi[t,2]/sum(psi[t,])
+			nmort[t] <- psi[t,3]/sum(psi[t,])
+		}
+		
+		#  Annual Rates
+		Sann <- prod(monthly[1:nocc])
+		
+		#  Cumulative Harvest Mortality
+		Hcum[1] <- hmort[1]
+		for(i in 2:nocc){
+			Hcum[i] <- prod(monthly[1:(i-1)]) * hmort[i] 
+		}
+		
+		#  Annual Harvest Mortality
+		Hann <- sum(Hcum[1:nocc])
+		
+		#  Cumulative Other Mortality
+		Ocum[1] <- nmort[1]
+		
+		#  Cumulative Other Mortality
+		for(i in 2:nocc){
+			Ocum[i] <- prod(monthly[1:(i-1)]) * nmort[i] 
+		}
+		
+		#  Annual Other Mortality
+		Oann <- sum(Ocum[1:nocc])
+
+		#  Mean monthly rates
+		Smon <- exp(b0[1])/(exp(b0[1])+exp(b0[2])+exp(b0[3])) 
+		Hmon <- exp(b0[2])/(exp(b0[1])+exp(b0[2])+exp(b0[3])) 
+		Omon <- exp(b0[3])/(exp(b0[1])+exp(b0[2])+exp(b0[3])) 
+
+		# STATE Indices
+		# First index = state at time t-1
+		# Second index = individual (i)
+		# Third index = time (t)
+		# Fourth index = state at time t
+		# STATE Codes
+		# 1 alive
+		# 2 dead, harvested
+		# 3 dead, not harvested
+		# 4 dead, long time
+		##################################
+		# DEFINE PARAMETERS
+		for (i in 1:nind){
+			for (t in first[i]:(last[i]-1)){
+				# Probability of X(t) given X(t-1)
+				px[1,i,t,1] <- monthly[t]
+				px[1,i,t,2] <- hmort[t]
+				px[1,i,t,3] <- nmort[t]
+				px[1,i,t,4] <- 0
+				px[2,i,t,1] <- 0
+				px[2,i,t,2] <- 0
+				px[2,i,t,3] <- 0
+				px[2,i,t,4] <- 1
+				px[3,i,t,1] <- 0
+				px[3,i,t,2] <- 0
+				px[3,i,t,3] <- 0
+				px[3,i,t,4] <- 1
+				px[4,i,t,1] <- 0
+				px[4,i,t,2] <- 0
+				px[4,i,t,3] <- 0
+				px[4,i,t,4] <- 1
+			}
+		}
+
+		#  Likelihood
+		for(i in 1:nind){  #  Loop over individuals
+		for(t in (first[i]+1):last[i]){  #  Loop over time
+				eh[i,t] ~ dcat(px[eh[i,t-1],i,t-1,1:4])
+			} # t
+		} # i
+
+	}  

@@ -1,0 +1,16 @@
+Integrated Population Model naming conventions
+
+Order of terms
+	- Recruitment, as represented by ratio data (R)
+	- Young of year survival (jS)
+	- Female Survival (fS)
+	- Male Survival (mS)
+	- Process Error (pe)
+		
+Use of values
+	c signifies that the model used a single term through time
+	n means that the values was considered latent and estimated 
+		(e.g. female survival) or it was not used in the model 
+		(e.g. young of year survival)
+	Process error can take values of pe for when the biological process
+		is stochastic or npe for deterministic models
