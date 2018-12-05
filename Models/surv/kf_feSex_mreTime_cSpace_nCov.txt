@@ -1,0 +1,53 @@
+		#  JAGS survival model
+		#  Josh Nowak
+		#  01/2018
+#################################################################################
+		model{
+		
+			##  Priors
+      for(s in 1:nsex){
+        mu_phi[s] ~ dnorm(4, 10)
+      }
+      
+      wsi_eff ~ dnorm(0, 0.001)
+      
+      #  Variance on temporal effect
+      tau_month ~ dunif(0, 100)
+      
+      #  Temporal effect
+      for(y in 1:nyr){
+        for(m in 1:nmonth){
+          month_eff[y,m] ~ dnorm(0, tau_month)
+        }
+      }
+
+      ##  Linear predictor
+      for(d in 1:ndau){
+        for(s in 1:nsex){
+          for(y in 1:nyr){
+            for(m in 1:nmonth){
+              logit(monthly[d,s,y,m]) <- mu_phi[s] + wsi_eff * cov[d,y] + 
+                month_eff[y,m]
+            }
+          }
+        }
+      }
+
+			##  Likelihood
+			for(i in 1:nind){
+        eh[i,first[i]] <- 1
+				for(j in (first[i]+1):last[i]){
+					mu[i,j] <- monthly[dau[i],sex[i],yr[j],month[j]] * eh[i,j-1] 
+					eh[i,j] ~ dbern(mu[i,j])
+				}
+			}
+					
+			##  Derived
+      for(s in 1:nsex){
+        for(d in 1:ndau){
+          for(y in 1:nyr){
+            annual[d,s,y] <- prod(monthly[d,s,y,])
+          }
+        }
+      }
+		}

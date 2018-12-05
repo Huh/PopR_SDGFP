@@ -1,0 +1,112 @@
+		#  JAGS survival model
+		#  Josh Nowak
+		#  02/2018
+#################################################################################
+    model{
+      ##  Priors
+      #  Survival
+      #  Priors on survival
+      for(s in 1:nsex){
+
+        mu_phi[1,s] ~ dnorm(3, 1)
+        mu_phi[2,s] ~ dnorm(1, 1)
+        
+        wsi_eff ~ dnorm(0, 0.001)
+        
+        for(u in 1:ndau){
+          for(y in 1:nyr){
+            for(m in 1:nmonth){
+              log(S_log[u,s,y,m]) <- mu_phi[1,s] + wsi_eff * cov[u,y]
+              log(H_log[u,s,y,m]) <- mu_phi[2,s]  
+              log(O_log[u,s,y,m]) <- 0
+              
+              Sums[u,s,y,m] <- S_log[u,s,y,m] + H_log[u,s,y,m] + 
+                O_log[u,s,y,m]
+              
+              monthly[u,s,y,m] <- S_log[u,s,y,m]/Sums[u,s,y,m]
+              hmort[u,s,y,m] <- H_log[u,s,y,m]/Sums[u,s,y,m]
+              nmort[u,s,y,m] <- O_log[u,s,y,m]/Sums[u,s,y,m]
+            }
+          }
+        }
+      }
+
+      # STATE Indices
+      # First index = state at time t-1
+      # Second index = individual (i)
+      # Third index = time (t)
+      # Fourth index = state at time t
+      # STATE Codes
+      # 1 alive
+      # 2 dead, harvested
+      # 3 dead, not harvested
+      # 4 dead, long time
+      ##################################
+      # DEFINE PARAMETERS
+      for(i in 1:nind){
+        for(j in first[i]:(last[i]-1)){
+          # Probability of X(t) given X(t-1)
+          px[1,i,j,1] <- monthly[dau[i],sex[i],yr[j+1],month[j+1]]
+          px[1,i,j,2] <- hmort[dau[i],sex[i],yr[j+1],month[j+1]]
+          px[1,i,j,3] <- nmort[dau[i],sex[i],yr[j+1],month[j+1]]
+          px[1,i,j,4] <- 0
+          px[2,i,j,1] <- 0
+          px[2,i,j,2] <- 0
+          px[2,i,j,3] <- 0
+          px[2,i,j,4] <- 1
+          px[3,i,j,1] <- 0
+          px[3,i,j,2] <- 0
+          px[3,i,j,3] <- 0
+          px[3,i,j,4] <- 1
+          px[4,i,j,1] <- 0
+          px[4,i,j,2] <- 0
+          px[4,i,j,3] <- 0
+          px[4,i,j,4] <- 1
+        }
+      }
+
+      ##  Likelihood
+      for(i in 1:nind){
+        eh[i,first[i]] <- 1
+        for(j in (first[i]+1):last[i]){
+            eh[i,j] ~ dcat(px[eh[i,j-1],i,j-1,1:4])
+        }
+      }
+      
+      ##  Derived
+      #  Annual Rates
+      for(s in 1:nsex){
+        for(u in 1:ndau){
+          for(y in 1:nyr){
+            Sann[u,s,y] <- prod(monthly[u,s,y,])
+          }
+        }
+      }
+      
+      #  Cumulative Harvest Mortality
+      for(s in 1:nsex){
+        for(u in 1:ndau){
+          for(y in 1:nyr){
+            Hcum[u,s,y,1] <- hmort[u,s,y,1]
+            for(m in 2:nmonth){
+              prod_month[u,s,y,m] <- prod(monthly[u,s,y,1:(m-1)])
+              Hcum[u,s,y,m] <- prod_month[u,s,y,m] * hmort[u,s,y,m]
+            }
+            Hann[u,s,y] <- sum(Hcum[u,s,y,])
+          }
+        }
+      }
+      
+      #  Cumulative Harvest Mortality
+      for(s in 1:nsex){
+        for(u in 1:ndau){
+          for(y in 1:nyr){
+            Ocum[u,s,y,1] <- nmort[u,s,y,1]
+            for(m in 2:nmonth){
+              Ocum[u,s,y,m] <- prod_month[u,s,y,m] * nmort[u,s,y,m]
+            }
+            Oann[u,s,y] <- sum(Ocum[u,s,y,])
+          }
+        }
+      }
+    }  
