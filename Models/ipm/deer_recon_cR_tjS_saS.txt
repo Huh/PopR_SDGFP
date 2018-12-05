@@ -1,0 +1,224 @@
+    model{
+      #  Naming 
+      #  Parameter names begin with a capitalized letter
+      #  Data are all lower case
+      #  Indexing always follows - DAU, Year, Age, Sex
+      #  If fewer indices are needed they follow the same order despite 
+      #   omissions
+
+      #  Recruitment
+      R_mu ~ dnorm(log(meanr[3,1,1]), meanr[3,1,2])T(-1,2)
+
+      for(u in 1:ndau){
+        for(yr in 1:nyr){
+          R[u,yr] <- exp(R_mu)
+        }
+      }
+
+      #  Survival
+      #  Priors on survival - First age class, not used, but required by 
+      #   post processing code
+
+      #  Transform probability back to real scale and use as the intercept
+      for(u in 1:ndau){
+        for(yr in 1:nyr){
+          for(s in 1:2){
+            S[u,yr,1,s] <- 0
+            H[u,yr,1,s] <- 0
+            O[u,yr,1,s] <- 0
+          }
+        }
+      }
+
+      #  Priors on survival - Juveniles - one sex, cause specific mortality
+      sd_js ~ dunif(0, 100)
+      tau_js <- 1/(sd_js^2)
+        
+      for(yr in 1:nyr){
+        js_yr[yr] ~ dnorm(0, tau_js)
+      }
+      
+      for(s in 1:2){
+        #  Informative priors are stored as probabilities
+        jS_tmp[1:3,s] ~ ddirch(c(means[2,1,1], meanh[2,1,1], meano[2,1,1]))
+
+        #  Transform probability to real scale
+        for(i in 1:3){
+          jS_mu[i,s] <- log(jS_tmp[i,s]/jS_tmp[3,s])
+        }
+        
+        #  Describe rate as function of linear predictor and define link
+        #   function
+        for(u in 1:ndau){
+          for(yr in 1:nyr){
+            log(jS_log[u,yr,s]) <- jS_mu[1,s] + js_yr[yr]
+            log(jH_log[u,yr,s]) <- jS_mu[2,s]
+            log(jO_log[u,yr,s]) <- 0
+            jSums[u,yr,s] <- jS_log[u,yr,s] + jH_log[u,yr,s] + jO_log[u,yr,s]
+            S[u,yr,2,s] <- jS_log[u,yr,s]/jSums[u,yr,s]
+            #S[u,yr,2,2] <- S[u,yr,2,1]
+            H[u,yr,2,s] <- jH_log[u,yr,s]/jSums[u,yr,s]
+            #H[u,yr,2,2] <- H[u,yr,2,1] 
+            O[u,yr,2,s] <- jO_log[u,yr,s]/jSums[u,yr,s]
+            #O[u,yr,2,2] <- O[u,yr,2,1]
+          }
+        }
+      }
+
+      #  Priors on survival - Adults, two sexes, cause specific mortality
+      sd_as ~ dunif(0, 100)
+      tau_as <- 1/(sd_as^2)
+      
+      for(s in 1:2){
+        #  Informative priors are stored as probabilities
+        aS_tmp[1:3,s] ~ ddirch(c(means[3,s,1], meanh[3,s,1], meano[3,s,1]))
+        
+        #  Transform probability to real scale
+        for(i in 1:3){
+          aS_mu[i,s] <- log(aS_tmp[i,s]/aS_tmp[3,s])
+        }
+
+        #  Describe rate as function of linear predictor and define link
+        #   function
+        for(u in 1:ndau){
+          as_sp[u,s] ~ dnorm(0, tau_as)
+          for(yr in 1:nyr){
+            log(aS_log[u,yr,s]) <- aS_mu[1,s] + as_sp[u,s]
+            log(aH_log[u,yr,s]) <- aS_mu[2,s]
+            log(aO_log[u,yr,s]) <- 0
+            aSums[u,yr,s] <- aS_log[u,yr,s] + aH_log[u,yr,s] + aO_log[u,yr,s]
+            S[u,yr,3,s] <- aS_log[u,yr,s]/aSums[u,yr,s]
+            H[u,yr,3,s] <- aH_log[u,yr,s]/aSums[u,yr,s]
+            O[u,yr,3,s] <- aO_log[u,yr,s]/aSums[u,yr,s]
+          }
+        }
+      }
+
+      ###  Prior on first year population size
+      #  Indexing - DAU, Year, Age, Sex
+      for(i in 1:nn1){
+        N[n1[i,1],1,n1[i,2],n1[i,3]] ~ dnorm(n1[i,4], 1/(n1[i,4] * 20))T(0,)
+      }
+      
+      for(u in 1:ndau){
+        yN[u,1] <- N[u,1,1,1] + N[u,1,1,2]
+        fN[u,1] <- N[u,1,2,1] + N[u,1,3,1]
+        mN[u,1] <- N[u,1,2,2] + N[u,1,3,2]
+        totN[u,1] <- yN[u,1] + fN[u,1] + mN[u,1]
+      }
+
+      ###  Process model - 3 ages, 2 sex
+      #  Using normal approximation because it is fast and mixes well
+      #  Sex = 1 is a female
+      #  Indexing follows - DAU, Year, Age, Sex
+      for(u in 1:ndau){
+        for(yr in 2:nyr){
+          #  Fawns
+          #  Normal approximation of Poisson
+          nMu[u,yr,1,1] <- (N[u,yr,3,1] * R[u,yr]) * 0.5
+          nMu[u,yr,1,2] <- nMu[u,yr,1,1]
+
+          N[u,yr,1,1] ~ dnorm(nMu[u,yr,1,1], 1/nMu[u,yr,1,1])
+          N[u,yr,1,2] <- N[u,yr,1,1]
+        
+          for(s in 1:2){
+            #  Juveniles
+            #  Normal approximation of Binomial
+            nMu[u,yr,2,s] <- 
+              (1 - O[u,yr-1,2,s]) * (N[u,yr-1,1,s] - harv[u,yr-1,2,s])
+              
+            nTau[u,yr,2,s] <- 1/abs((N[u,yr-1,1,s] - harv[u,yr-1,2,s]) * 
+              (O[u,yr-1,2,s]) * (1 - O[u,yr-1,2,s]) + 0.001)
+              
+            N[u,yr,2,s] ~ dnorm(nMu[u,yr,2,s], nTau[u,yr,2,s])
+        
+            #  Adults
+            #  Normal approximation of Binomial
+            nMu[u,yr,3,s] <- 
+              (N[u,yr-1,2,s] + N[u,yr-1,3,s] - harv[u,yr-1,3,s]) *
+                (1 - O[u,yr-1,3,s])
+
+            nTau[u,yr,3,s] <- 
+              1/abs((N[u,yr-1,2,s] + N[u,yr-1,3,s] - harv[u,yr-1,3,s]) * 
+              (O[u,yr-1,3,s]) * (1 - O[u,yr-1,3,s]) + 0.001)
+              
+            N[u,yr,3,s] ~ dnorm(nMu[u,yr,3,s], nTau[u,yr,3,s])
+          }
+        
+        #  Totals in each year
+        yN[u,yr] <- N[u,yr,1,1] + N[u,yr,1,2]
+        mN[u,yr] <- N[u,yr,2,2] + N[u,yr,3,2]
+        fN[u,yr] <- N[u,yr,2,1] + N[u,yr,3,1]
+        totN[u,yr] <- yN[u,yr] + fN[u,yr] + mN[u,yr]
+        }
+      }
+
+      ####################  Observation Models
+      #  Indexing/columns always follows
+      #    1   2     3    4    5    6
+      #  DAU, Year, Age, Sex, Mean, Tau
+
+      #  Abundance Observation - [dau, yr]
+      for(i in 1:nn){
+        ndat[i,5] ~ dnorm(totN[ndat[i,1],ndat[i,2]], ndat[i,6])T(0,)
+      }
+
+      #  Harvest Observations - [dau,yr,a,s]
+      for(u in 1:ndau){
+        for(yr in 1:nobs_yr){
+          for(a in 2:nage){
+            for(s in 1:2){
+              harv[u,yr,a,s] ~ dbinom(H[u,yr,a,s], round(N[u,yr,a,s]))
+            }
+          }
+        }
+      }
+      
+      #  Fawn:Doe Ratio Observations
+      for(i in 1:nyf){
+        yfdat[i,5] ~ dnorm(R[yfdat[i,1], yfdat[i,2]], yfdat[i,6])T(0,2)
+      }
+      
+      #  Buck:Doe Ratio Observations
+      for(i in 1:nmf){
+        mfdat[i,5] ~ dnorm(mf[mfdat[i,1], mfdat[i,2]], mfdat[i,6])
+      }
+      
+      #  Survival Observations
+      for(i in 1:ns){
+        sdat[i,5] ~ dnorm(S[sdat[i,1], sdat[i,2], sdat[i,3], sdat[i,4]], sdat[i,6])T(0, 1)
+      }
+      
+      #  Harvest Mortality Rate Observations
+      for(i in 1:nhm){
+        hmdat[i,5] ~ dnorm(H[hmdat[i,1], hmdat[i,2], hmdat[i,3], hmdat[i,4]], hmdat[i,6])T(0, 1)
+      }
+      
+      #  Other (Non-Harvest) Mortality Rate Observations
+      for(i in 1:nom){
+        omdat[i,5] ~ dnorm(O[omdat[i,1], omdat[i,2], omdat[i,3], omdat[i,4]], omdat[i,6])T(0, 1)
+      }
+
+      #  Derived - the constant is added to avoid division by 0
+      for(u in 1:ndau){
+        for(yr in 1:nyr){
+          yf[u,yr] <- (yN[u,yr] + 0.001)/(fN[u,yr] + 0.001)
+          mf[u,yr] <- (mN[u,yr] + 0.001)/(fN[u,yr] + 0.001)
+          
+        }
+      }
+
+      #  Incomplete vectors cannot be monitored, so aribitrary value is given
+      #  to the first year
+      #  Same constant trick is used here for the division
+      #  Using the log and exp handles 0 gracefully, recall that
+      #  log(x) + log(y) = log(xy), so the geometric mean is calculated using
+      #  an algebraic rearrangment that is more robust to 0's
+      for(u in 1:ndau){
+        lambda[u,1] <- 1
+        for(yr in 2:nyr){
+          lambda[u,yr] <- (totN[u,yr] + 0.001)/(totN[u,yr-1] + 0.001)
+          logla[u,yr] <- log(lambda[u,yr])
+        }
+      }
+  }
