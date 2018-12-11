@@ -1,0 +1,41 @@
+	#  JAGS ratio analysis model
+	#  Josh Nowak
+	#  08/2015
+################################################################################
+	model{
+	  #  Priors
+	  mu_comp[1:3] ~ ddirch(c(1, 1, 1))
+		
+	  #  Linear predictor
+	  for(u in 1:ndau){
+		for(y in 1:nyr){
+		  log(p_log[1,u,y]) <- mu_comp[1]
+		  log(p_log[2,u,y]) <- mu_comp[2]  
+		  log(p_log[3,u,y]) <- 0
+		  
+		  Sums[u,y] <- p_log[1,u,y] + p_log[2,u,y] + p_log[3,u,y]
+		  
+		  p[1,u,y] <- p_log[1,u,y]/Sums[u,y]
+		  p[2,u,y] <- p_log[2,u,y]/Sums[u,y]
+		  p[3,u,y] <- p_log[3,u,y]/Sums[u,y]
+		}
+	  }
+	  
+	  #  Likelihood
+	  for(i in 1:nobs){
+		y[i,] ~ dmulti(p[,dau[i],year[i]], n[i])
+	  }
+		
+	  for(u in 1:ndau){
+		for(y in 1:nyr){
+		  #  Derive sex and age ratios
+		  mf[u,y] <- p[3,u,y]/p[2,u,y]
+		  yf[u,y] <- p[1,u,y]/p[2,u,y]
+
+		  #  Rename comp for easier handling
+		  paf[u,y] <- p[2,u,y]
+		  pam[u,y] <- p[3,u,y]
+		  py[u,y] <- p[1,u,y]
+		}
+	  }
+	}
