@@ -11,12 +11,10 @@
         mu_phi[1,s] ~ dnorm(3, 1)
         mu_phi[2,s] ~ dnorm(1, 1)
         
-        wsi_eff ~ dnorm(0, 0.001)
-        
         for(u in 1:ndau){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              log(S_log[u,s,y,m]) <- mu_phi[1,s] + wsi_eff * cov[u,y]
+              log(S_log[u,s,y,m]) <- mu_phi[1,s]
               log(H_log[u,s,y,m]) <- mu_phi[2,s]  
               log(O_log[u,s,y,m]) <- 0
               

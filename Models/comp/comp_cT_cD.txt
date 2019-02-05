@@ -4,7 +4,8 @@
 ################################################################################
 	model{
 	  #  Priors
-	  mu_comp[1:3] ~ ddirch(c(1, 1, 1))
+	  mu_comp[1] ~ dnorm(0, 0.0001)
+    mu_comp[2] ~ dnorm(0, 0.0001)
 		
 	  #  Linear predictor
 	  for(u in 1:ndau){

@@ -37,7 +37,9 @@
       #  Priors on survival - Juveniles - one sex, cause specific mortality
       for(s in 1:2){
         #  Informative priors are stored as probabilities
-        jS_tmp[1:3,s] ~ ddirch(c(means[2,1,1], meanh[2,1,1], meano[2,1,1]))
+        jS_tmp[1,s] ~ dnorm(means[2,s,1], means[2,s,2])T(0, 1)
+        jS_tmp[2,s] ~ dnorm(meanh[2,s,1], meanh[2,s,2])T(0, 1)
+        jS_tmp[3,s] ~ dnorm(meano[2,s,1], meano[2,s,2])T(0, 1)
 
         #  Transform probability to real scale
         for(i in 1:3){
@@ -65,7 +67,9 @@
       #  Priors on survival - Adults, two sexes, cause specific mortality
       for(s in 1:2){
         #  Informative priors are stored as probabilities
-        aS_tmp[1:3,s] ~ ddirch(c(means[3,s,1], meanh[3,s,1], meano[3,s,1]))
+        aS_tmp[1,s] ~ dnorm(means[3,s,1], means[3,s,2])T(0,1)
+        aS_tmp[2,s] ~ dnorm(meanh[3,s,1], meanh[3,s,2])T(0,1)
+        aS_tmp[3,s] ~ dnorm(meano[3,s,1], meano[3,s,2])T(0,1)
         
         #  Transform probability to real scale
         for(i in 1:3){

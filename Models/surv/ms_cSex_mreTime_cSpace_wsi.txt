@@ -5,19 +5,11 @@
     model{
       ##  Priors
       for(i in 1:2){
-        #  Variance on spatial effect
-        sd_dau[i] ~ dunif(0, 100)
-        tau_dau[i] <- 1/(sd_dau[i]^2)
         
         #  Variance on temporal effect
         for(m in 1:nmonth){
           sd_month[i,m] ~ dunif(0, 100)
           tau_month[i,m] <- 1/(sd_month[i,m]^2)
-        }
-
-        #  Spatial effect
-        for(d in 1:ndau){
-          dau_eff[i,d] ~ dnorm(0, tau_dau[i])
         }
         
         #  Temporal effect
@@ -28,22 +20,21 @@
         }
       }
       
-      for(s in 1:nsex){
-        
-        mu_phi[1,s] ~ dnorm(3, 1)
-        mu_phi[2,s] ~ dnorm(1, 1)
-        
-        for(u in 1:ndau){
+      mu_phi[1] ~ dnorm(3, 1)
+      mu_phi[2] ~ dnorm(1, 1)
+      
+      wsi_eff ~ dnorm(0, 0.001)
+      
+      for(u in 1:ndau){
+        for(s in 1:nsex){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              log(S_log[u,s,y,m]) <- mu_phi[1,s] + month_eff[1,y,m] + 
-                dau_eff[1,u]
-              log(H_log[u,s,y,m]) <- mu_phi[2,s] + month_eff[2,y,m] + 
-                dau_eff[2,u]
+              log(S_log[u,s,y,m]) <- mu_phi[1] + wsi_eff * cov[u,y] + 
+                month_eff[1,y,m]
+              log(H_log[u,s,y,m]) <- mu_phi[2] + month_eff[2,y,m]
               log(O_log[u,s,y,m]) <- 0
               
-              Sums[u,s,y,m] <- S_log[u,s,y,m] + H_log[u,s,y,m] + 
-                O_log[u,s,y,m]
+              Sums[u,s,y,m] <- S_log[u,s,y,m] + H_log[u,s,y,m] + O_log[u,s,y,m]
               
               monthly[u,s,y,m] <- S_log[u,s,y,m]/Sums[u,s,y,m]
               hmort[u,s,y,m] <- H_log[u,s,y,m]/Sums[u,s,y,m]
@@ -52,6 +43,7 @@
           }
         }
       }
+
 
       # STATE Indices
       # First index = state at time t-1
@@ -99,8 +91,8 @@
       #  Annual Rates
       for(s in 1:nsex){
         for(u in 1:ndau){
-          for(y in 1:nyr){
-            Sann[u,s,y] <- prod(monthly[u,s,y,])
+          for(yr in 1:nyr){
+            Sann[u,s,yr] <- prod(monthly[u,s,yr,])
           }
         }
       }
@@ -108,13 +100,13 @@
       #  Cumulative Harvest Mortality
       for(s in 1:nsex){
         for(u in 1:ndau){
-          for(y in 1:nyr){
-            Hcum[u,s,y,1] <- hmort[u,s,y,1]
+          for(yr in 1:nyr){
+            Hcum[u,s,yr,1] <- hmort[u,s,yr,1]
             for(m in 2:nmonth){
-              prod_month[u,s,y,m] <- prod(monthly[u,s,y,1:(m-1)])
-              Hcum[u,s,y,m] <- prod_month[u,s,y,m] * hmort[u,s,y,m]
+              prod_month[u,s,yr,m] <- prod(monthly[u,s,yr,1:(m-1)])
+              Hcum[u,s,yr,m] <- prod_month[u,s,yr,m] * hmort[u,s,yr,m]
             }
-            Hann[u,s,y] <- sum(Hcum[u,s,y,])
+            Hann[u,s,yr] <- sum(Hcum[u,s,yr,])
           }
         }
       }
@@ -122,12 +114,12 @@
       #  Cumulative Harvest Mortality
       for(s in 1:nsex){
         for(u in 1:ndau){
-          for(y in 1:nyr){
-            Ocum[u,s,y,1] <- nmort[u,s,y,1]
+          for(yr in 1:nyr){
+            Ocum[u,s,yr,1] <- nmort[u,s,yr,1]
             for(m in 2:nmonth){
-              Ocum[u,s,y,m] <- prod_month[u,s,y,m] * nmort[u,s,y,m]
+              Ocum[u,s,yr,m] <- prod_month[u,s,yr,m] * nmort[u,s,yr,m]
             }
-            Oann[u,s,y] <- sum(Ocum[u,s,y,])
+            Oann[u,s,yr] <- sum(Ocum[u,s,yr,])
           }
         }
       }

@@ -5,19 +5,11 @@
     model{
       ##  Priors
       for(i in 1:2){
-        #  Variance on spatial effect
-        sd_dau[i] ~ dunif(0, 100)
-        tau_dau[i] <- 1/(sd_dau[i]^2)
         
         #  Variance on temporal effect
         for(m in 1:nmonth){
           sd_month[i,m] ~ dunif(0, 100)
           tau_month[i,m] <- 1/(sd_month[i,m]^2)
-        }
-
-        #  Spatial effect
-        for(d in 1:ndau){
-          dau_eff[i,d] ~ dnorm(0, tau_dau[i])
         }
         
         #  Temporal effect
@@ -28,18 +20,19 @@
         }
       }
       
+      wsi_eff ~ dnorm(0, 0.001)
+      
       for(s in 1:nsex){
-        
+            
         mu_phi[1,s] ~ dnorm(3, 1)
         mu_phi[2,s] ~ dnorm(1, 1)
         
         for(u in 1:ndau){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              log(S_log[u,s,y,m]) <- mu_phi[1,s] + month_eff[1,y,m] + 
-                dau_eff[1,u]
-              log(H_log[u,s,y,m]) <- mu_phi[2,s] + month_eff[2,y,m] + 
-                dau_eff[2,u]
+              log(S_log[u,s,y,m]) <- mu_phi[1,s] + wsi_eff * cov[u,y] + 
+                month_eff[1,y,m]
+              log(H_log[u,s,y,m]) <- mu_phi[2,s] + month_eff[2,y,m]
               log(O_log[u,s,y,m]) <- 0
               
               Sums[u,s,y,m] <- S_log[u,s,y,m] + H_log[u,s,y,m] + 

@@ -10,10 +10,8 @@
         tau_dau[i] <- 1/(sd_dau[i]^2)
         
         #  Variance on temporal effect
-        for(m in 1:nmonth){
-          sd_month[i,m] ~ dunif(0, 100)
-          tau_month[i,m] <- 1/(sd_month[i,m]^2)
-        }
+        sd_month[i] ~ dunif(0, 100)
+        tau_month[i] <- 1/(sd_month[i]^2)
 
         #  Spatial effect
         for(d in 1:ndau){
@@ -28,6 +26,8 @@
         }
       }
       
+      wsi_eff ~ dnorm(0, 0.001)
+      
       for(s in 1:nsex){
         
         mu_phi[1,s] ~ dnorm(3, 1)
@@ -36,8 +36,8 @@
         for(u in 1:ndau){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              log(S_log[u,s,y,m]) <- mu_phi[1,s] + month_eff[1,y,m] + 
-                dau_eff[1,u]
+              log(S_log[u,s,y,m]) <- mu_phi[1,s] + wsi_eff * cov[u,y] + 
+                month_eff[1,y,m] + dau_eff[1,u]
               log(H_log[u,s,y,m]) <- mu_phi[2,s] + month_eff[2,y,m] + 
                 dau_eff[2,u]
               log(O_log[u,s,y,m]) <- 0

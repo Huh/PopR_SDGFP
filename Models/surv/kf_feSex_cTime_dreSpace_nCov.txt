@@ -6,10 +6,8 @@
 		
 			##  Priors
       for(s in 1:nsex){
-        mu_phi[s] ~ dnorm(4, 10)
+        mu_phi[s] ~ dnorm(1.5, 1)
       }
-      
-      wsi_eff ~ dnorm(0, 0.001)
       
       #  Variance on spatial effect
       sd_dau ~ dunif(0, 100)
@@ -25,8 +23,7 @@
         for(s in 1:nsex){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              logit(monthly[d,s,y,m]) <- mu_phi[s] + wsi_eff * cov[d,y] + 
-                dau_eff[d]
+              logit(monthly[d,s,y,m]) <- mu_phi[s] + dau_eff[d]
             }
           }
         }

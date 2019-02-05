@@ -6,15 +6,14 @@
       ##  Priors
       for(i in 1:2){
         #  Variance on spatial effect
-        tau_dau[i] ~ dunif(0, 100)
-        
+        sd_dau[i] ~ dunif(0, 100)
+        tau_dau[i] <- 1/(sd_dau[i]^2)
+
         #  Spatial effect
         for(d in 1:ndau){
           dau_eff[i,d] ~ dnorm(0, tau_dau[i])
         }
       }
-      
-      wsi_eff ~ dnorm(0, 0.001)
       
       for(s in 1:nsex){
       
@@ -24,8 +23,7 @@
         for(u in 1:ndau){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              log(S_log[u,s,y,m]) <- mu_phi[1,s] + wsi_eff * cov[u,y] + 
-                dau_eff[1,u]
+              log(S_log[u,s,y,m]) <- mu_phi[1,s] + dau_eff[1,u]
               log(H_log[u,s,y,m]) <- mu_phi[2,s] + dau_eff[2,u]
               log(O_log[u,s,y,m]) <- 0
               

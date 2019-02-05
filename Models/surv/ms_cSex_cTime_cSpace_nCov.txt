@@ -4,28 +4,14 @@
 #################################################################################
     model{
       ##  Priors
-      #  Informative priors are stored as probabilities
-      #ann[1] ~ dnorm(mean(means[,1]), mean(means[,2]))
-      #ann[2] ~ dnorm(mean(meanh[,1]), mean(meanh[,2]))
-      #ann[3] ~ dnorm(mean(meano[,1]), mean(meano[,2]))
-      #ann[1:3] ~ ddirch(c(0.85, 0.1, 0.05))
-
-      #  Transform probability to real scale
-      #for(i in 1:3){
-      #  tst[i] <- log((ann[i] ^ (1/12))/(ann[3] ^ (1/12)))
-      #  mu_phi[i] <- log((ann[i] ^ (1/12))/(ann[3] ^ (1/12)))
-      #}
-      
       mu_phi[1] ~ dnorm(3, 1)
       mu_phi[2] ~ dnorm(1, 1)
-      
-      wsi_eff ~ dnorm(0, 0.001)
       
       for(u in 1:ndau){
         for(s in 1:nsex){
           for(y in 1:nyr){
             for(m in 1:nmonth){
-              log(S_log[u,s,y,m]) <- mu_phi[1] + wsi_eff * cov[u,y]
+              log(S_log[u,s,y,m]) <- mu_phi[1]
               log(H_log[u,s,y,m]) <- mu_phi[2]  
               log(O_log[u,s,y,m]) <- 0
               
